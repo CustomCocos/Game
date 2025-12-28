@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1"/>
+  <title>⚽ Мяч с глазами — Firebase</title>
+  
+  <!-- Firebase через CDN (compat-режим для простоты) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: white;
+      overflow: hidden;
+      height: 100vh;
+    }
+    #menu, #gameUI {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #gameUI { display: none; }
+    button {
+      padding: 14px 24px;
+      margin: 10px 0;
+      width: 90%;
+      max-width: 300px;
+      border: none;
+      border-radius: 12px;
+      background: #4ecca3;
+      color: #1a1a2e;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    input {
+      padding: 14px;
+      width: 90%;
+      max-width: 300px;
+      text-align: center;
+      border-radius: 12px;
+      border: 2px solid #4ecca3;
+      background: #16213e;
+      color: white;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    #roomList { width: 90%; max-width: 300px; margin-top: 15px; }
+    .room-item {
+      background: #0f3460;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+    }
+    canvas {
+      background: #0f3460;
+      border-radius: 16px;
+      max-width: 100%;
+      max-height: 70vh;
+      display: block;
+    }
+    #playersInfo {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="menu">
+  <h2 style="margin-bottom: 20px; color: #4ecca3;">⚽ Создай или зайди в игру</h2>
+  <input type="text" id="roomIdInput" placeholder="Имя комнаты (латиница)" maxlength="12" />
+  <button onclick="createOrJoinRoom()">▶️ Создать / Войти</button>
+  
+  <div id="roomList">
+    <h3 style="margin: 20px 0 10px; color: #4ecca3;">Активные комнаты:</h3>
+    <div id="roomsContainer"></div>
+  </div>
+</div>
+
+<div id="gameUI">
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <div id="playersInfo">Игроков: 0</div>
+</div>
+
+<script>
+  // === ТВОЙ FIREBASE CONFIG ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyB03njAHYVQ2VI5-0-rOTR39pW0ggPqDus",
+    authDomain: "ball-game-53e49.firebaseapp.com",
+    projectId: "ball-game-53e49",
+    storageBucket: "ball-game-53e49.firebasestorage.app",
+    messagingSenderId: "895128807264",
+    appId: "1:895128807264:web:019538a33ed810c55ba005"
+  };
+
+  // Инициализация Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // Глобальные переменные
+  let currentRoom = null;
+  let playerId = null;
+  let players = {};
+  let isDragging = false;
+  let canvas, ctx;
+
+  // Генерация ID игрока
+  function genPlayerId() {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+  }
+
+  // Загрузка списка комнат
+  function loadRoomList() {
+    const roomsRef = database.ref('rooms');
+    roomsRef.once('value', (snapshot) => {
+      const container = document.getElementById('roomsContainer');
+      container.innerHTML = '';
+      let count = 0;
+      snapshot.forEach((roomSnap) => {
+        const roomData = roomSnap.val();
+        if (roomData && roomData.players && Object.keys(roomData.players).length > 0) {
+          count++;
+          const div = document.createElement('div');
+          div.className = 'room-item';
+          div.textContent = roomSnap.key + ` (${Object.keys(roomData.players).length})`;
+          div.onclick = () => joinRoom(roomSnap.key);
+          container.appendChild(div);
+        }
+        if (count >= 8) return false;
+      });
+      if (count === 0) {
+        container.innerHTML = '<div style="color:#666">Нет активных комнат</div>';
+      }
+    });
+  }
+
+  function createOrJoinRoom() {
+    const input = document.getElementById('roomIdInput');
+    let roomId = input.value.trim();
+    if (!roomId) {
+      roomId = 'room' + Math.floor(Math.random() * 1000);
+    }
+    joinRoom(roomId);
+  }
+
+  function joinRoom(roomId) {
+    currentRoom = roomId;
+    playerId = genPlayerId();
+
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'block';
+
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const maxWidth = Math.min(window.innerWidth - 40, 600);
+      const maxHeight = Math.min(window.innerHeight * 0.6, 400);
+      canvas.width = maxWidth;
+      canvas.height = maxHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    players[playerId] = { x: centerX, y: centerY };
+
+    const roomRef = database.ref(`rooms/${roomId}`);
+
+    // Подписка на обновления комнаты
+    roomRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.players) {
+        players = data.players;
+        if (!players[playerId]) {
+          players[playerId] = { x: centerX, y: centerY };
+        }
+        updatePlayersCount(Object.keys(players).length);
+      }
+    });
+
+    // Отправка позиции каждые 100 мс
+    setInterval(() => {
+      if (players[playerId]) {
+        roomRef.update({
+          [`players/${playerId}`]: players[playerId]
+        });
+      }
+    }, 100);
+
+    // Удаление игрока при закрытии
+    window.addEventListener('beforeunload', () => {
+      roomRef.child(`players/${playerId}`).remove();
+    });
+
+    // Управление: мышь и тач
+    function getCanvasPoint(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function startDrag(x, y) {
+      const pt = getCanvasPoint(x, y);
+      const myBall = players[playerId];
+      if (myBall && (pt.x - myBall.x)**2 + (pt.y - myBall.y)**2 <= 400) {
+        isDragging = true;
+      }
+    }
+
+    function moveDrag(x, y) {
+      if (!isDragging) return;
+      const pt = getCanvasPoint(x, y);
+      players[playerId].x = pt.x;
+      players[playerId].y = pt.y;
+    }
+
+    function endDrag() {
+      isDragging = false;
+    }
+
+    // Мышь
+    canvas.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', endDrag);
+
+    // Тач (телефон!)
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    });
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      endDrag();
+    });
+
+    // Игровой цикл
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const id in players) {
+        const p = players[id];
+        if (!p) continue;
+        ctx.fillStyle = id === playerId ? '#4ecca3' : '#e94560';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+        // Глаза
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(p.x - 6, p.y - 4, 5, 0, Math.PI * 2);
+        ctx.arc(p.x + 6, p.y - 4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        ctx.arc(p.x - 6, p.y - 4, 2, 0, Math.PI * 2);
+        ctx.arc(p.x + 6, p.y - 4, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
+
+    // Обновление списка комнат
+    setInterval(loadRoomList, 4000);
+    loadRoomList();
+  }
+
+  function updatePlayersCount(count) {
+    document.getElementById('playersInfo').textContent = `Игроков: ${count}`;
+  }
+
+  // Запуск
+  loadRoomList();
+</script>
+
+</body>
+</html>
