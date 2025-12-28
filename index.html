@@ -67,18 +67,18 @@
       font-size: 18px;
       margin-bottom: 15px;
     }
-    .room-item {
-      background: rgba(22, 33, 62, 0.7);
-      padding: 12px;
-      margin: 8px 0;
-      border-radius: 10px;
+    .skin-option {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin: 5px;
       cursor: pointer;
-      font-size: 15px;
-      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid transparent;
     }
-    .room-item:hover { background: rgba(30, 45, 85, 0.8); }
-    .room-name { font-weight: bold; color: #4ecca3; }
-    .room-info { font-size: 13px; color: #aaa; margin-top: 4px; }
+    .skin-option.selected { border-color: white; transform: scale(1.1); }
     #gameContainer {
       position: absolute;
       width: 100%;
@@ -109,8 +109,9 @@
       background: #0f0f1b;
       padding: 8px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 16px;
       color: #eee;
+      line-height: 1.4;
     }
     #chatInput {
       padding: 10px;
@@ -129,9 +130,15 @@
       border-radius: 20px;
       font-size: 16px;
     }
-    #nicknameInput {
-      background: #1c2a47;
-      border-color: #4ecca3;
+    #minimap {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 150px;
+      height: 100px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid #4ecca3;
+      border-radius: 8px;
     }
   </style>
 </head>
@@ -144,6 +151,17 @@
   </h2>
   
   <input type="text" id="nicknameInput" placeholder="Твой никнейм" maxlength="12" />
+  
+  <div style="margin: 15px 0; color: #4ecca3; width: 90%; max-width: 320px;">Выбери скин:</div>
+  <div id="skinSelector" style="display:flex; flex-wrap:wrap; justify-content:center; width:90%; max-width:320px;">
+    <div class="skin-option" data-color="#3498db" style="background:#3498db;"></div>
+    <div class="skin-option" data-color="#e74c3c" style="background:#e74c3c;"></div>
+    <div class="skin-option" data-color="#2ecc71" style="background:#2ecc71;"></div>
+    <div class="skin-option" data-color="#f1c40f" style="background:#f1c40f;"></div>
+    <div class="skin-option" data-color="#9b59b6" style="background:#9b59b6;"></div>
+    <div class="skin-option" data-color="#e67e22" style="background:#e67e22;"></div>
+  </div>
+  
   <input type="text" id="roomIdInput" placeholder="Имя комнаты (или оставь пустым)" maxlength="12" />
   
   <button onclick="createOrJoinRoom()">▶️ Создать / Войти</button>
@@ -163,8 +181,10 @@
     
     <div id="chatBox">
       <div id="chatMessages"></div>
-      <input type="text" id="chatInput" placeholder="Сообщение..." maxlength="60" />
+      <input type="text" id="chatInput" placeholder="Сообщение... (эмодзи разрешены!)" maxlength="60" />
     </div>
+    
+    <canvas id="minimap" width="150" height="100"></canvas>
   </div>
 </div>
 
@@ -182,24 +202,52 @@
   firebase.initializeApp(firebaseConfig);
   const database = firebase.database();
 
-  // Глобальные переменные
+  // === ЗВУКИ ===
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  function playSound(type) {
+    if (!audioContext) return;
+    const freq = { join: 440, chat: 330, move: 220 }[type] || 220;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.frequency.value = freq;
+    gain.gain.value = 0.05;
+    oscillator.type = 'sine';
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.1);
+  }
+
+  // === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ===
   let currentRoom = null;
   let playerId = null;
   let playerName = null;
+  let playerColor = '#3498db';
   let players = {};
   let isDragging = false;
-  let canvas, ctx;
+  let canvas, ctx, minimapCtx;
   const WORLD_WIDTH = 3000;
   const WORLD_HEIGHT = 2000;
   let cameraX = 0, cameraY = 0;
   let roomRef = null;
 
-  // Генерация уникального ID
+  // Выбор скина (цвета)
+  let selectedSkin = document.querySelector('.skin-option');
+  selectedSkin.classList.add('selected');
+  document.querySelectorAll('.skin-option').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.skin-option').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+      playerColor = el.getAttribute('data-color');
+    });
+  });
+
+  // Генерация ID
   function genPlayerId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   }
 
-  // === ЧАТ ===
+  // === ЧАТ С ЭМОДЗИ ===
   function sendMessage() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
@@ -212,16 +260,24 @@
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
     input.value = '';
+    playSound('chat');
   }
 
   function setupChat() {
+    const chatMessages = document.getElementById('chatMessages');
     const chatRef = database.ref(`rooms/${currentRoom}/chat`);
+    
+    const observer = new MutationObserver(() => {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+    observer.observe(chatMessages, { childList: true });
+
     chatRef.limitToLast(100).on('child_added', (snapshot) => {
       const msg = snapshot.val();
       const div = document.createElement('div');
-      div.innerHTML = `<b>[${msg.name}]</b> ${msg.text}`;
-      document.getElementById('chatMessages').appendChild(div);
-      div.scrollIntoView();
+      // Эмодзи отображаются корректно благодаря UTF-8
+      div.textContent = `[${msg.name}]: ${msg.text}`;
+      chatMessages.appendChild(div);
     });
     
     document.getElementById('chatInput').addEventListener('keypress', (e) => {
@@ -229,156 +285,70 @@
     });
   }
 
-  // === УНИКАЛЬНОСТЬ НИКНЕЙМА В КОМНАТЕ ===
-  function isNicknameAvailable(nickname, players) {
-    for (const id in players) {
-      if (players[id] && players[id].name === nickname) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // === ПОКИНУТЬ КОМНАТУ ===
-  function leaveRoom() {
-    if (roomRef) {
-      roomRef.child(`players/${playerId}`).remove();
-      roomRef = null;
-    }
-    currentRoom = null;
-    playerId = null;
-    playerName = null;
-    players = {};
-    
-    document.getElementById('gameUI').style.display = 'none';
-    document.getElementById('menu').style.display = 'flex';
-    
-    // Очистка чата
-    document.getElementById('chatMessages').innerHTML = '';
-  }
-
-  // === АВТОМАТИЧЕСКОЕ УДАЛЕНИЕ ПРИ ВЫХОДЕ ===
-  function setupDisconnect() {
-    if (!currentRoom || !playerId) return;
-    const presenceRef = database.ref(`rooms/${currentRoom}/players/${playerId}`);
-    presenceRef.onDisconnect().remove();
-  }
-
-  // === ЗАГРУЗКА СПИСКА СЕРВЕРОВ ===
-  function loadRoomList() {
-    const roomsRef = database.ref('rooms');
-    roomsRef.once('value', (snapshot) => {
-      const container = document.getElementById('roomsContainer');
-      const rooms = [];
-      
-      snapshot.forEach((roomSnap) => {
-        const data = roomSnap.val();
-        if (data && data.players) {
-          const playerCount = Object.keys(data.players).length;
-          if (playerCount > 0) {
-            rooms.push({
-              id: roomSnap.key,
-              players: playerCount,
-              lastActive: data.lastActive || 0
-            });
-          }
-        }
-      });
-
-      // Сортировка: сначала активные и полные
-      rooms.sort((a, b) => {
-        if (b.players !== a.players) return b.players - a.players;
-        return b.lastActive - a.lastActive;
-      });
-
-      container.innerHTML = '';
-      if (rooms.length === 0) {
-        container.innerHTML = '<div style="color:#666;padding:10px;">Нет активных серверов</div>';
-        return;
-      }
-
-      rooms.slice(0, 10).forEach(room => {
-        const now = Date.now();
-        const ageMin = Math.floor((now - room.lastActive) / 60000);
-        if (ageMin > 5) return; // игнорируем старые
-
-        const div = document.createElement('div');
-        div.className = 'room-item';
-        div.innerHTML = `
-          <div class="room-name">${room.id}</div>
-          <div class="room-info">Игроков: ${room.players} • Активен ${ageMin === 0 ? 'только что' : ageMin + ' мин назад'}</div>
-        `;
-        div.onclick = () => joinRoom(room.id);
-        container.appendChild(div);
-      });
-    });
-  }
-
   // === ВХОД В КОМНАТУ ===
-  function joinRoom(roomId) {
+  async function joinRoom(roomId) {
     const nicknameInput = document.getElementById('nicknameInput');
-    let nickname = nicknameInput.value.trim();
-    if (!nickname) {
-      nickname = 'Player' + Math.floor(Math.random() * 1000);
-    }
-    if (nickname.length > 12) nickname = nickname.substring(0, 12);
+    let baseName = nicknameInput.value.trim();
+    if (!baseName) baseName = 'Player' + Math.floor(Math.random() * 1000);
+    if (baseName.length > 12) baseName = baseName.substring(0, 12);
 
     currentRoom = roomId;
     playerId = genPlayerId();
-    playerName = nickname;
 
-    // Показать игру
     document.getElementById('menu').style.display = 'none';
     document.getElementById('gameUI').style.display = 'block';
 
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d');
-
-    // Спавн в случайной позиции
-    const startX = Math.random() * (WORLD_WIDTH - 200) + 100;
-    const startY = Math.random() * (WORLD_HEIGHT - 200) + 100;
-    players[playerId] = { x: startX, y: startY, name: playerName };
+    const minimap = document.getElementById('minimap');
+    minimapCtx = minimap.getContext('2d');
 
     roomRef = database.ref(`rooms/${currentRoom}`);
 
-    // Проверка уникальности ника
-    roomRef.child('players').once('value', (snapshot) => {
-      const existingPlayers = snapshot.val() || {};
-      let finalName = playerName;
-      let counter = 1;
-      while (!isNicknameAvailable(finalName, existingPlayers)) {
-        finalName = playerName + counter;
-        counter++;
-        if (counter > 100) break;
-      }
-      playerName = finalName;
-      players[playerId].name = playerName;
-    });
+    // Уникальный ник
+    const playersSnapshot = await roomRef.child('players').once('value');
+    const existingPlayers = playersSnapshot.val() || {};
+    let finalName = baseName;
+    let counter = 1;
+    while (Object.values(existingPlayers).some(p => p && p.name === finalName)) {
+      finalName = baseName + counter;
+      counter++;
+    }
+    playerName = finalName;
 
-    // Подписка на игроков
+    // Спавн
+    const startX = Math.random() * (WORLD_WIDTH - 200) + 100;
+    const startY = Math.random() * (WORLD_HEIGHT - 200) + 100;
+    players[playerId] = { x: startX, y: startY, name: playerName, color: playerColor };
+
+    await roomRef.child(`players/${playerId}`).set(players[playerId]);
+    await roomRef.child('lastActive').set(Date.now());
+
     roomRef.child('players').on('value', (snapshot) => {
       players = snapshot.val() || {};
       updatePlayersCount(Object.keys(players).length);
     });
 
-    // Обновление активности комнаты
     setInterval(() => {
       if (currentRoom) {
         database.ref(`rooms/${currentRoom}/lastActive`).set(Date.now());
       }
-    }, 30000); // каждые 30 сек
+    }, 30000);
 
-    // Отправка позиции
     setInterval(() => {
       if (players[playerId]) {
-        roomRef.child(`players/${playerId}`).set(players[playerId]);
+        roomRef.child(`players/${playerId}`).update({
+          x: players[playerId].x,
+          y: players[playerId].y
+        });
       }
     }, 100);
 
     setupChat();
     setupDisconnect();
+    playSound('join');
 
-    // Управление (мышь + тач)
+    // Управление
     function getWorldPoint(clientX, clientY) {
       const rect = canvas.getBoundingClientRect();
       return {
@@ -400,6 +370,7 @@
       const pt = getWorldPoint(x, y);
       players[playerId].x = pt.x;
       players[playerId].y = pt.y;
+      playSound('move');
     }
 
     canvas.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
@@ -421,7 +392,6 @@
 
     // Игровой цикл
     function gameLoop() {
-      // Камера
       if (players[playerId]) {
         cameraX = players[playerId].x - window.innerWidth / 2;
         cameraY = players[playerId].y - window.innerHeight / 2;
@@ -429,26 +399,25 @@
         cameraY = Math.max(0, Math.min(cameraY, WORLD_HEIGHT - window.innerHeight));
       }
 
-      ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-      
-      // Сетка
-      ctx.strokeStyle = '#151525';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < WORLD_WIDTH; x += 100) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_HEIGHT); ctx.stroke();
-      }
-      for (let y = 0; y < WORLD_HEIGHT; y += 100) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y); ctx.stroke();
+      // Клетчатая земля
+      const cellSize = 50;
+      for (let x = 0; x < WORLD_WIDTH; x += cellSize) {
+        for (let y = 0; y < WORLD_HEIGHT; y += cellSize) {
+          const isLight = (Math.floor(x / cellSize) + Math.floor(y / cellSize)) % 2 === 0;
+          ctx.fillStyle = isLight ? '#2ecc71' : '#27ae60';
+          ctx.fillRect(x, y, cellSize, cellSize);
+        }
       }
 
-      // Игроки
+      // Игроки — цветные мячи с глазами
       for (const id in players) {
         const p = players[id];
         if (!p) continue;
         const screenX = p.x - cameraX;
         const screenY = p.y - cameraY;
         
-        ctx.fillStyle = id === playerId ? '#4ecca3' : '#e94560';
+        // Мяч
+        ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(screenX, screenY, 20, 0, Math.PI * 2);
         ctx.fill();
@@ -465,20 +434,95 @@
         ctx.arc(screenX + 6, screenY - 4, 2, 0, Math.PI * 2);
         ctx.fill();
         
-        // Никнейм
+        // Ник
         ctx.fillStyle = 'white';
         ctx.font = '14px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(p.name, screenX, screenY - 30);
       }
 
+      // Мини-карта
+      minimapCtx.fillStyle = '#0a0a14';
+      minimapCtx.fillRect(0, 0, 150, 100);
+      minimapCtx.strokeStyle = '#4ecca3';
+      minimapCtx.strokeRect(0, 0, 150, 100);
+      
+      const mapScaleX = 150 / WORLD_WIDTH;
+      const mapScaleY = 100 / WORLD_HEIGHT;
+      for (const id in players) {
+        const p = players[id];
+        if (!p) continue;
+        const mx = p.x * mapScaleX;
+        const my = p.y * mapScaleY;
+        minimapCtx.fillStyle = id === playerId ? '#3498db' : '#e74c3c';
+        minimapCtx.beginPath();
+        minimapCtx.arc(mx, my, 3, 0, Math.PI * 2);
+        minimapCtx.fill();
+      }
+
       requestAnimationFrame(gameLoop);
     }
     gameLoop();
 
-    // Обновление списка серверов
-    setInterval(loadRoomList, 5000);
+    const roomListInterval = setInterval(loadRoomList, 3000);
+    window.addEventListener('beforeunload', () => clearInterval(roomListInterval));
     loadRoomList();
+  }
+
+  // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+  function setupDisconnect() {
+    if (!currentRoom || !playerId) return;
+    database.ref(`rooms/${currentRoom}/players/${playerId}`).onDisconnect().remove();
+  }
+
+  function loadRoomList() {
+    const roomsRef = database.ref('rooms');
+    roomsRef.once('value', (snapshot) => {
+      const container = document.getElementById('roomsContainer');
+      const rooms = [];
+      const now = Date.now();
+      
+      snapshot.forEach((roomSnap) => {
+        const data = roomSnap.val();
+        if (data && data.players) {
+          const playerCount = Object.keys(data.players).length;
+          const lastActive = data.lastActive || 0;
+          const ageMin = (now - lastActive) / 60000;
+          if (playerCount > 0 && ageMin <= 5) {
+            rooms.push({ id: roomSnap.key, players: playerCount, lastActive });
+          }
+        }
+      });
+
+      rooms.sort((a, b) => b.players - a.players || b.lastActive - a.lastActive);
+      container.innerHTML = rooms.length ? '' : '<div style="color:#666;padding:10px;">Нет активных серверов</div>';
+
+      rooms.slice(0, 10).forEach(room => {
+        const ageMin = Math.floor((now - room.lastActive) / 60000);
+        const div = document.createElement('div');
+        div.className = 'room-item';
+        div.innerHTML = `
+          <div class="room-name">${room.id}</div>
+          <div class="room-info">Игроков: ${room.players} • ${ageMin === 0 ? 'только что' : ageMin + ' мин назад'}</div>
+        `;
+        div.onclick = () => joinRoom(room.id);
+        container.appendChild(div);
+      });
+    });
+  }
+
+  function leaveRoom() {
+    if (roomRef && playerId) {
+      roomRef.child(`players/${playerId}`).remove();
+    }
+    currentRoom = null;
+    playerId = null;
+    playerName = null;
+    players = {};
+    
+    document.getElementById('gameUI').style.display = 'none';
+    document.getElementById('menu').style.display = 'flex';
+    document.getElementById('chatMessages').innerHTML = '';
   }
 
   function createOrJoinRoom() {
