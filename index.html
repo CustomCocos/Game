@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>⚽ Кликер с друзьями</title>
+  <title>⚽ Кликер — Вход</title>
   
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
       overflow: hidden;
       height: 100vh;
     }
-    #authScreen, #menu, #gameUI { 
+    .screen { 
       position: absolute;
       width: 100%;
       height: 100%;
@@ -29,7 +29,9 @@
       justify-content: center;
       padding: 20px;
     }
-    #gameUI { display: none; }
+    #authScreen, #emailScreen, #phoneScreen { display: flex; }
+    #menu, #gameUI { display: none; }
+    
     button {
       padding: 14px 24px;
       margin: 10px 0;
@@ -43,6 +45,7 @@
       font-weight: bold;
       cursor: pointer;
     }
+    .auth-btn { background: #16213e; margin-top: 5px; }
     input {
       padding: 14px;
       width: 90%;
@@ -127,18 +130,48 @@
       background: #e94560;
       font-size: 14px;
     }
+    #backBtn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 6px 12px;
+      background: #4ecca3;
+      font-size: 14px;
+      border-radius: 20px;
+    }
   </style>
 </head>
 <body>
 
-<!-- Экран входа -->
-<div id="authScreen">
-  <h2 style="margin-bottom: 30px; color: #4ecca3;">Войдите в игру</h2>
-  <button id="googleBtn">🔐 Войти через Google</button>
+<!-- Экран выбора метода входа -->
+<div id="authScreen" class="screen">
+  <h2 style="margin-bottom: 20px; color: #4ecca3;">Выберите способ входа</h2>
+  <button onclick="signInWithGoogle()">🔐 Google</button>
+  <button onclick="showEmailScreen()">📧 Email / Пароль</button>
+  <button onclick="showPhoneScreen()">📱 Телефон</button>
+  <button onclick="signInAnonymously()">👤 Анонимно</button>
+</div>
+
+<!-- Email / Password -->
+<div id="emailScreen" class="screen" style="display:none;">
+  <h2>Email / Пароль</h2>
+  <input type="email" id="emailInput" placeholder="Email" />
+  <input type="password" id="passwordInput" placeholder="Пароль" />
+  <button onclick="handleEmailAuth()">Войти / Зарегистрироваться</button>
+  <button class="auth-btn" onclick="showAuthScreen()">← Назад</button>
+</div>
+
+<!-- Телефон -->
+<div id="phoneScreen" class="screen" style="display:none;">
+  <h2>Телефон (SMS)</h2>
+  <input type="tel" id="phoneInput" placeholder="+1 650-555-0000" />
+  <input type="text" id="codeInput" placeholder="Код из SMS" style="display:none;" />
+  <button id="phoneBtn" onclick="sendPhoneCode()">Получить SMS</button>
+  <button class="auth-btn" onclick="showAuthScreen()">← Назад</button>
 </div>
 
 <!-- Главное меню -->
-<div id="menu" style="display:none;">
+<div id="menu" class="screen" style="display:none;">
   <h2 style="margin-bottom: 20px; color: #4ecca3;">⚽ Кликер с друзьями</h2>
   
   <div id="tabs">
@@ -151,6 +184,7 @@
   
   <input type="text" id="roomIdInput" placeholder="Имя комнаты" value="clicker-room" />
   <button onclick="joinGame()">▶️ Начать игру</button>
+  <button class="auth-btn" onclick="signOut()">Выйти из аккаунта</button>
 </div>
 
 <!-- Игровой интерфейс -->
@@ -161,6 +195,7 @@
     <div id="timeDisplay">Время: 60</div>
     <button id="leaveBtn" onclick="leaveGame()">🚪 Выйти</button>
     <canvas id="minimap" width="120" height="80"></canvas>
+    <button id="backBtn" onclick="showAuthScreen()">⌂ Меню</button>
   </div>
 </div>
 
@@ -190,23 +225,101 @@
   let canvas, ctx, minimapCtx;
   const WORLD_WIDTH = 1500;
   const WORLD_HEIGHT = 1000;
+  let confirmationResult = null; // для телефонной верификации
 
-  // === ВХОД ЧЕРЕЗ GOOGLE (ТОЛЬКО ПО КЛИКУ) ===
-  document.getElementById('googleBtn').addEventListener('click', () => {
+  // === НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ ===
+  function showAuthScreen() {
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('emailScreen').style.display = 'none';
+    document.getElementById('phoneScreen').style.display = 'none';
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'none';
+  }
+  
+  function showEmailScreen() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('emailScreen').style.display = 'flex';
+  }
+  
+  function showPhoneScreen() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('phoneScreen').style.display = 'flex';
+  }
+
+  // === МЕТОДЫ ВХОДА ===
+  function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider);
-  });
+  }
 
+  function signInAnonymously() {
+    auth.signInAnonymously();
+  }
+
+  function handleEmailAuth() {
+    const email = document.getElementById('emailInput').value;
+    const password = document.getElementById('passwordInput').value;
+    if (!email || !password) return;
+
+    // Сначала пытаемся войти
+    auth.signInWithEmailAndPassword(email, password)
+      .catch(error => {
+        if (error.code === 'auth/user-not-found') {
+          // Если нет — регистрируем
+          auth.createUserWithEmailAndPassword(email, password)
+            .catch(console.error);
+        } else {
+          console.error(error);
+        }
+      });
+  }
+
+  function sendPhoneCode() {
+    const phoneNumber = document.getElementById('phoneInput').value;
+    if (!phoneNumber) return;
+
+    const appVerifier = new firebase.auth.RecaptchaVerifier('phoneBtn', {
+      'size': 'invisible',
+      'callback': () => {}
+    });
+
+    auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+      .then(confirmation => {
+        confirmationResult = confirmation;
+        document.getElementById('codeInput').style.display = 'block';
+        document.getElementById('phoneBtn').textContent = 'Подтвердить код';
+        document.getElementById('phoneBtn').onclick = verifyPhoneCode;
+      })
+      .catch(console.error);
+  }
+
+  function verifyPhoneCode() {
+    const code = document.getElementById('codeInput').value;
+    if (!code || !confirmationResult) return;
+    
+    confirmationResult.confirm(code)
+      .catch(console.error);
+  }
+
+  // === ВЫХОД ===
+  function signOut() {
+    auth.signOut().then(showAuthScreen);
+  }
+
+  // === ПОСЛЕ УСПЕШНОГО ВХОДА ===
   auth.onAuthStateChanged(user => {
     if (user) {
       currentUser = user;
-      document.getElementById('authScreen').style.display = 'none';
       document.getElementById('menu').style.display = 'flex';
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('emailScreen').style.display = 'none';
+      document.getElementById('phoneScreen').style.display = 'none';
       loadFriends();
       loadLeaderboard();
     }
   });
 
+  // === ОСТАЛЬНАЯ ЛОГИКА ИГРЫ (БЕЗ ИЗМЕНЕНИЙ) ===
   function showTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
@@ -283,7 +396,11 @@
     
     const startX = Math.random() * (WORLD_WIDTH - 100) + 50;
     const startY = Math.random() * (WORLD_HEIGHT - 100) + 50;
-    players[playerId] = { x: startX, y: startY, name: currentUser.displayName || "Player" };
+    players[playerId] = { 
+      x: startX, 
+      y: startY, 
+      name: currentUser.displayName || currentUser.email || "Player" 
+    };
     
     const roomRef = database.ref(`rooms/${currentRoom}`);
     roomRef.child(`players/${playerId}`).set(players[playerId]);
@@ -364,13 +481,13 @@
   function endGame() {
     gameActive = false;
     
+    const name = currentUser.displayName || currentUser.email || "Anonymous";
     database.ref('leaderboard').push({
-      name: currentUser.displayName || "Anonymous",
+      name: name,
       score: score,
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
     
-    // Используем confirm вместо alert, чтобы не блокировать
     if (confirm(`Игра окончена! Ваш счёт: ${score}\nВернуться в меню?`)) {
       leaveGame();
     } else {
