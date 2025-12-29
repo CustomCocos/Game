@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <title>✨ Кликер Pro — Мультиплеер</title>
   
-  <!-- Firebase -->
-  <script src="7.24.0/firebase-app.js"></script>
-  <script src="7.24.0/firebase-auth.js"></script>
-  <script src="7.24.0/firebase-database.js"></script>
+  <!-- ✅ ПРАВИЛЬНОЕ ПОДКЛЮЧЕНИЕ FIREBASE (через CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
@@ -303,7 +303,7 @@
 </div>
 
 <script>
-  // === ИСПОЛЬЗУЕМ CDN ДЛЯ СТАБИЛЬНОСТИ ===
+  // === ТВОЙ FIREBASE CONFIG ===
   const firebaseConfig = {
     apiKey: "AIzaSyB03njAHYVQ2VI5-0-rOTR39pW0ggPqDus",
     authDomain: "ball-game-53e49.firebaseapp.com",
@@ -314,10 +314,13 @@
     appId: "1:895128807264:web:019538a33ed810c55ba005"
   };
 
-  // Инициализация Firebase
+  // ✅ Инициализация Firebase (теперь работает!)
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const database = firebase.database();
+
+  // ... остальной код без изменений ...
+  // (всё, что было ниже — остаётся как есть)
 
   // Глобальные переменные
   let currentUser = null;
@@ -836,11 +839,6 @@
   window.acceptFriendRequest = acceptFriendRequest;
   window.declineFriendRequest = declineFriendRequest;
 </script>
-
-<!-- Firebase CDN -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
 </body>
 </html>
