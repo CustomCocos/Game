@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>⚽ Кликер с друзьями — Firebase</title>
+  <title>⚽ Кликер с друзьями</title>
   
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -134,7 +134,7 @@
 <!-- Экран входа -->
 <div id="authScreen">
   <h2 style="margin-bottom: 30px; color: #4ecca3;">Войдите в игру</h2>
-  <button onclick="signInWithGoogle()">🔐 Войти через Google</button>
+  <button id="googleBtn">🔐 Войти через Google</button>
 </div>
 
 <!-- Главное меню -->
@@ -180,7 +180,6 @@
   const auth = firebase.auth();
   const database = firebase.database();
 
-  // Глобальные переменные
   let currentUser = null;
   let currentRoom = null;
   let playerId = null;
@@ -192,14 +191,11 @@
   const WORLD_WIDTH = 1500;
   const WORLD_HEIGHT = 1000;
 
-  // === АВТОРИЗАЦИЯ ===
-  function signInWithGoogle() {
+  // === ВХОД ЧЕРЕЗ GOOGLE (ТОЛЬКО ПО КЛИКУ) ===
+  document.getElementById('googleBtn').addEventListener('click', () => {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(error => {
-      console.error("Ошибка входа:", error);
-      alert("Не удалось войти. Попробуйте снова.");
-    });
-  }
+    auth.signInWithPopup(provider);
+  });
 
   auth.onAuthStateChanged(user => {
     if (user) {
@@ -208,13 +204,9 @@
       document.getElementById('menu').style.display = 'flex';
       loadFriends();
       loadLeaderboard();
-    } else {
-      document.getElementById('authScreen').style.display = 'flex';
-      document.getElementById('menu').style.display = 'none';
     }
   });
 
-  // === ВКЛАДКИ ===
   function showTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
@@ -222,7 +214,6 @@
     document.getElementById('leaderboard').style.display = tab === 'leaderboard' ? 'block' : 'none';
   }
 
-  // === ДРУЗЬЯ (онлайн игроки) ===
   function loadFriends() {
     const friendsList = document.getElementById('friendsList');
     friendsList.innerHTML = '<div>Загрузка...</div>';
@@ -253,7 +244,6 @@
     });
   }
 
-  // === ЛИДЕРБОРД ===
   function loadLeaderboard() {
     const board = document.getElementById('leaderboard');
     board.innerHTML = '<div>Загрузка...</div>';
@@ -278,7 +268,6 @@
     });
   }
 
-  // === ВХОД В ИГРУ ===
   function joinGame() {
     const roomIdInput = document.getElementById('roomIdInput');
     currentRoom = roomIdInput.value.trim() || 'clicker-room';
@@ -292,30 +281,24 @@
     const minimap = document.getElementById('minimap');
     minimapCtx = minimap.getContext('2d');
     
-    // Спавн игрока
     const startX = Math.random() * (WORLD_WIDTH - 100) + 50;
     const startY = Math.random() * (WORLD_HEIGHT - 100) + 50;
     players[playerId] = { x: startX, y: startY, name: currentUser.displayName || "Player" };
     
     const roomRef = database.ref(`rooms/${currentRoom}`);
     roomRef.child(`players/${playerId}`).set(players[playerId]);
+    roomRef.child(`players/${playerId}`).onDisconnect().remove();
     
-    // Подписка на других игроков
     roomRef.child('players').on('value', snapshot => {
       players = snapshot.val() || {};
     });
     
-    // Удаление при выходе
-    roomRef.child(`players/${playerId}`).onDisconnect().remove();
-    
-    // Запуск игры
     score = 0;
     gameTime = 60;
     gameActive = true;
     document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
     document.getElementById('timeDisplay').textContent = `Время: ${gameTime}`;
     
-    // Таймер
     const timer = setInterval(() => {
       if (!gameActive) {
         clearInterval(timer);
@@ -329,7 +312,6 @@
       }
     }, 1000);
     
-    // Клик по мячу = +1
     canvas.addEventListener('click', handleCanvasClick);
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
@@ -339,7 +321,6 @@
     gameLoop();
   }
 
-  // === ОБРАБОТКА КЛИКА (ЗАЩИТА ОТ ЧИТОВ) ===
   function handleCanvasClick(clientPoint) {
     if (!gameActive) return;
     
@@ -347,9 +328,8 @@
     const clickX = clientPoint.clientX - rect.left;
     const clickY = clientPoint.clientY - rect.top;
     
-    // Найти ближайший мяч
     let closestPlayer = null;
-    let minDist = 50; // радиус клика
+    let minDist = 50;
     
     for (const id in players) {
       const p = players[id];
@@ -362,15 +342,12 @@
     }
     
     if (closestPlayer === playerId) {
-      // Защита: не позволяем кликать слишком часто
       if (Date.now() - (window.lastClick || 0) < 100) return;
       window.lastClick = Date.now();
       
       score++;
       document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
       
-      // === ЭМУЛЯЦИЯ ЗАЩИТЫ ОТ ЧИТОВ ===
-      // В реальности это делает Cloud Function
       const clickData = {
         playerId: playerId,
         timestamp: firebase.database.ServerValue.TIMESTAMP,
@@ -378,32 +355,29 @@
         clickY: clickY
       };
       
-      // Простая валидация: клик в пределах экрана
       if (clickX >= 0 && clickX <= WORLD_WIDTH && clickY >= 0 && clickY <= WORLD_HEIGHT) {
-        // В реальности: вызов Cloud Function для валидации
-        // Здесь просто записываем
         database.ref(`clicks/${currentRoom}/${Date.now()}`).set(clickData);
       }
     }
   }
 
-  // === ОКОНЧАНИЕ ИГРЫ ===
   function endGame() {
     gameActive = false;
     
-    // Сохранение результата
-    const leaderboardRef = database.ref('leaderboard').push();
-    leaderboardRef.set({
+    database.ref('leaderboard').push({
       name: currentUser.displayName || "Anonymous",
       score: score,
       timestamp: firebase.database.ServerValue.TIMESTAMP
     });
     
-    alert(`Игра окончена! Ваш счёт: ${score}`);
-    leaveGame();
+    // Используем confirm вместо alert, чтобы не блокировать
+    if (confirm(`Игра окончена! Ваш счёт: ${score}\nВернуться в меню?`)) {
+      leaveGame();
+    } else {
+      leaveGame();
+    }
   }
 
-  // === ВЫХОД ИЗ ИГРЫ ===
   function leaveGame() {
     if (currentRoom && playerId) {
       database.ref(`rooms/${currentRoom}/players/${playerId}`).remove();
@@ -412,17 +386,14 @@
     players = {};
     document.getElementById('gameUI').style.display = 'none';
     document.getElementById('menu').style.display = 'flex';
-    loadFriends(); // обновить друзей
+    loadFriends();
   }
 
-  // === ИГРОВОЙ ЦИКЛ ===
   function gameLoop() {
     if (!gameActive) return;
     
-    // Очистка
     ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     
-    // Клетчатая земля
     const cellSize = 50;
     for (let x = 0; x < WORLD_WIDTH; x += cellSize) {
       for (let y = 0; y < WORLD_HEIGHT; y += cellSize) {
@@ -432,18 +403,15 @@
       }
     }
     
-    // Игроки
     for (const id in players) {
       const p = players[id];
       if (!p) continue;
       
-      // Мяч
       ctx.fillStyle = id === playerId ? '#3498db' : '#e74c3c';
       ctx.beginPath();
       ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
       ctx.fill();
       
-      // Глаза
       ctx.fillStyle = 'white';
       ctx.beginPath();
       ctx.arc(p.x - 6, p.y - 4, 5, 0, Math.PI * 2);
@@ -455,14 +423,12 @@
       ctx.arc(p.x + 6, p.y - 4, 2, 0, Math.PI * 2);
       ctx.fill();
       
-      // Ник
       ctx.fillStyle = 'white';
       ctx.font = '14px Arial';
       ctx.textAlign = 'center';
       ctx.fillText(p.name, p.x, p.y - 30);
     }
     
-    // Мини-карта
     minimapCtx.fillStyle = '#0a0a14';
     minimapCtx.fillRect(0, 0, 120, 80);
     minimapCtx.strokeStyle = '#4ecca3';
@@ -484,7 +450,6 @@
     requestAnimationFrame(gameLoop);
   }
 
-  // === ОБНОВЛЕНИЕ СПИСКА ДРУЗЕЙ КАЖДЫЕ 5 СЕК ===
   setInterval(loadFriends, 5000);
 </script>
 
