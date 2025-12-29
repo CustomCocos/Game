@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>⚽ Кликер — Мультиплеер</title>
+  <title>✨ Кликер — Мультиплеер</title>
   
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -13,8 +13,8 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
     body {
-      font-family: system-ui, sans-serif;
-      background: #0d0d1a;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #162341);
       color: white;
       overflow: hidden;
       height: 100vh;
@@ -29,63 +29,130 @@
       justify-content: center;
       padding: 20px;
     }
-    #authScreen, #emailScreen { display: flex; }
+    #authScreen, #emailScreen, #serversScreen { display: flex; }
     #menu, #gameUI { display: none; }
     
-    button {
-      padding: 14px 24px;
-      margin: 10px 0;
+    .btn {
+      padding: 14px 28px;
+      margin: 12px 0;
       width: 90%;
-      max-width: 300px;
+      max-width: 340px;
       border: none;
-      border-radius: 12px;
-      background: #4ecca3;
-      color: #0f0f1b;
+      border-radius: 16px;
       font-size: 18px;
-      font-weight: bold;
+      font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    .auth-btn {
-      background: #16213e;
-      margin-top: 5px;
-      font-size: 16px;
-    }
-    input {
+    .btn-primary { background: linear-gradient(45deg, #4ecca3, #2a9d8f); color: white; }
+    .btn-secondary { background: rgba(255,255,255,0.15); color: white; }
+    .btn-danger { background: linear-gradient(45deg, #e94560, #d0003a); color: white; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+    
+    .input-field {
       padding: 14px;
       width: 90%;
-      max-width: 300px;
+      max-width: 340px;
       text-align: center;
-      border-radius: 12px;
-      border: 2px solid #4ecca3;
-      background: #16213e;
+      border-radius: 16px;
+      border: 2px solid rgba(78,204,163,0.5);
+      background: rgba(255,255,255,0.1);
       color: white;
       font-size: 18px;
-      margin-bottom: 15px;
+      margin: 12px 0;
+      backdrop-filter: blur(4px);
+    }
+    
+    .menu-header {
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .menu-title {
+      font-size: 32px;
+      background: linear-gradient(45deg, #4ecca3, #f4a261);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    
+    /* Профиль */
+    #profilePanel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,0.3);
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    #profileAvatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #4ecca3, #2a9d8f);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    #profileName { font-size: 16px; font-weight: 600; }
+    
+    /* Вкладки */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
     }
     .tab-btn {
-      background: #16213e;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 12px;
       color: white;
-      margin: 0 5px;
-      width: auto;
-      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
     }
-    .tab-btn.active { background: #4ecca3; color: #0f0f1b; }
-    #tabs { margin: 20px 0; }
-    #friendsList, #leaderboard {
+    .tab-btn.active {
+      background: linear-gradient(45deg, #4ecca3, #2a9d8f);
+    }
+    
+    /* Списки */
+    .list-container {
       width: 90%;
-      max-width: 300px;
-      max-height: 200px;
+      max-width: 340px;
+      max-height: 180px;
       overflow-y: auto;
-      background: rgba(22,33,62,0.7);
+      background: rgba(0,0,0,0.2);
+      padding: 12px;
+      border-radius: 16px;
+      margin: 10px 0;
+    }
+    .list-item {
       padding: 10px;
-      border-radius: 10px;
+      margin: 6px 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .friend-item, .leader-item {
-      padding: 6px;
-      margin: 4px 0;
-      background: rgba(30,45,85,0.8);
-      border-radius: 6px;
+    .add-friend-btn {
+      background: rgba(78,204,163,0.3);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
     }
+    
+    /* Игровой интерфейс */
     #gameContainer {
       position: absolute;
       width: 100%;
@@ -102,45 +169,28 @@
       position: absolute;
       bottom: 20px;
       right: 20px;
-      width: 120px;
-      height: 80px;
-      background: rgba(0,0,0,0.6);
+      width: 130px;
+      height: 90px;
+      background: rgba(0,0,0,0.4);
       border: 2px solid #4ecca3;
-      border-radius: 8px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    #scoreDisplay {
+    .game-overlay {
       position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(0,0,0,0.5);
-      padding: 10px 16px;
+      padding: 10px 18px;
+      background: rgba(0,0,0,0.4);
       border-radius: 20px;
       font-size: 18px;
+      font-weight: 600;
+      backdrop-filter: blur(4px);
     }
-    #timeDisplay {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(0,0,0,0.5);
-      padding: 10px 16px;
-      border-radius: 20px;
-      font-size: 18px;
-    }
+    #scoreDisplay { top: 20px; left: 20px; }
     #leaveBtn {
       position: absolute;
-      top: 70px;
+      top: 75px;
       right: 20px;
-      padding: 6px 12px;
-      background: #e94560;
-      font-size: 14px;
-    }
-    #backBtn {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      padding: 6px 12px;
-      background: #4ecca3;
-      font-size: 14px;
+      padding: 8px 16px;
       border-radius: 20px;
     }
   </style>
@@ -149,52 +199,84 @@
 
 <!-- Экран входа -->
 <div id="authScreen" class="screen">
-  <h2 style="margin-bottom: 20px; color: #4ecca3;">Войдите в игру</h2>
-  <button onclick="signInWithGoogle()">🔐 Войти через Google</button>
-  <button onclick="showEmailScreen()">📧 Email / Пароль</button>
-  <button onclick="signInAnonymously()">👤 Играть анонимно</button>
+  <div class="menu-header">
+    <div class="menu-title">✨ Кликер</div>
+  </div>
+  <button class="btn btn-primary" onclick="signInWithGoogle()">🔐 Google</button>
+  <button class="btn btn-secondary" onclick="showEmailScreen()">📧 Email</button>
+  <button class="btn btn-secondary" onclick="signInAnonymously()">👤 Гость</button>
 </div>
 
-<!-- Email / Password -->
+<!-- Email -->
 <div id="emailScreen" class="screen" style="display:none;">
-  <h2>Email / Пароль</h2>
-  <input type="email" id="emailInput" placeholder="Ваш email" />
-  <input type="password" id="passwordInput" placeholder="Пароль (мин. 6 символов)" />
-  <button onclick="handleEmailAuth()">Войти / Зарегистрироваться</button>
-  <button class="auth-btn" onclick="showAuthScreen()">← Назад</button>
+  <div class="menu-header">
+    <div class="menu-title">📧 Вход</div>
+  </div>
+  <input type="email" id="emailInput" class="input-field" placeholder="Email" />
+  <input type="password" id="passwordInput" class="input-field" placeholder="Пароль" />
+  <button class="btn btn-primary" onclick="handleEmailAuth()">Войти / Регистрация</button>
+  <button class="btn btn-secondary" onclick="showAuthScreen()">← Назад</button>
+</div>
+
+<!-- Экран серверов -->
+<div id="serversScreen" class="screen" style="display:none;">
+  <div class="menu-header">
+    <div class="menu-title">🌐 Серверы</div>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showServerTab('main')">Основной</button>
+    <button class="tab-btn" onclick="showServerTab('create')">Создать</button>
+  </div>
+  
+  <div id="mainServer">
+    <p style="text-align:center; margin-bottom:20px; color:#a0a0c0;">Сервер работает всегда</p>
+    <button class="btn btn-primary" onclick="joinRoom('main-server')">▶️ Присоединиться</button>
+  </div>
+  
+  <div id="createServer" style="display:none;">
+    <input type="text" id="customRoomId" class="input-field" placeholder="ID комнаты" />
+    <button class="btn btn-primary" onclick="createCustomRoom()">🚀 Создать сервер</button>
+  </div>
+  
+  <button class="btn btn-secondary" onclick="showMainMenu()">← Назад</button>
 </div>
 
 <!-- Главное меню -->
 <div id="menu" class="screen" style="display:none;">
-  <h2 style="margin-bottom: 20px; color: #4ecca3;">⚽ Кликер с друзьями</h2>
+  <div class="menu-header">
+    <div class="menu-title">✨ Кликер</div>
+  </div>
   
-  <div id="tabs">
+  <div id="profilePanel" onclick="showAuthScreen()">
+    <div id="profileAvatar">👤</div>
+    <div id="profileName">Загрузка...</div>
+  </div>
+  
+  <div class="tabs">
     <button class="tab-btn active" onclick="showTab('friends')">Друзья</button>
     <button class="tab-btn" onclick="showTab('leaderboard')">Лидеры</button>
   </div>
   
-  <div id="friendsList"></div>
-  <div id="leaderboard" style="display:none;"></div>
+  <div id="friendsList" class="list-container"></div>
+  <div id="leaderboard" class="list-container" style="display:none;"></div>
   
-  <input type="text" id="roomIdInput" placeholder="Имя комнаты" value="clicker-room" />
-  <button onclick="joinGame()">▶️ Начать игру</button>
-  <button class="auth-btn" onclick="signOut()">Выйти из аккаунта</button>
+  <button class="btn btn-primary" onclick="showServersScreen()">🌐 Выбрать сервер</button>
+  <button class="btn btn-danger" onclick="signOut()">Выйти</button>
 </div>
 
 <!-- Игровой интерфейс -->
 <div id="gameUI">
   <div id="gameContainer">
     <canvas id="gameCanvas" width="1500" height="1000"></canvas>
-    <div id="scoreDisplay">Счёт: 0</div>
-    <div id="timeDisplay">Время: 60</div>
-    <button id="leaveBtn" onclick="leaveGame()">🚪 Выйти</button>
-    <canvas id="minimap" width="120" height="80"></canvas>
-    <button id="backBtn" onclick="showAuthScreen()">⌂ Меню</button>
+    <div id="scoreDisplay" class="game-overlay">Счёт: 0</div>
+    <button id="leaveBtn" class="btn btn-danger" onclick="leaveGame()">🚪 Выйти</button>
+    <canvas id="minimap" width="130" height="90"></canvas>
   </div>
 </div>
 
 <script>
-  // === ТВОЙ FIREBASE CONFIG ===
+  // === FIREBASE CONFIG ===
   const firebaseConfig = {
     apiKey: "AIzaSyB03njAHYVQ2VI5-0-rOTR39pW0ggPqDus",
     authDomain: "ball-game-53e49.firebaseapp.com",
@@ -214,16 +296,28 @@
   let playerId = null;
   let players = {};
   let score = 0;
-  let gameTime = 60;
   let gameActive = false;
   let canvas, ctx, minimapCtx;
   const WORLD_WIDTH = 1500;
   const WORLD_HEIGHT = 1000;
 
+  // Генерация уникального персонажа
+  function generatePlayerSkin() {
+    const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'];
+    const eyes = ['⚪', '👁️', '👀'];
+    const hats = ['—', '🎓', '👑', '🎩', '👒'];
+    return {
+      color: colors[Math.floor(Math.random() * colors.length)],
+      eyes: eyes[Math.floor(Math.random() * eyes.length)],
+      hat: hats[Math.floor(Math.random() * hats.length)]
+    };
+  }
+
   // === НАВИГАЦИЯ ===
   function showAuthScreen() {
     document.getElementById('authScreen').style.display = 'flex';
     document.getElementById('emailScreen').style.display = 'none';
+    document.getElementById('serversScreen').style.display = 'none';
     document.getElementById('menu').style.display = 'none';
     document.getElementById('gameUI').style.display = 'none';
   }
@@ -232,8 +326,28 @@
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('emailScreen').style.display = 'flex';
   }
+  
+  function showServersScreen() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('serversScreen').style.display = 'flex';
+  }
+  
+  function showMainMenu() {
+    document.getElementById('menu').style.display = 'flex';
+    document.getElementById('serversScreen').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'none';
+    loadFriends();
+    loadLeaderboard();
+  }
+  
+  function showServerTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('mainServer').style.display = tab === 'main' ? 'block' : 'none';
+    document.getElementById('createServer').style.display = tab === 'create' ? 'block' : 'none';
+  }
 
-  // === МЕТОДЫ ВХОДА ===
+  // === АУТЕНТИФИКАЦИЯ ===
   function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider);
@@ -250,14 +364,10 @@
       alert("Пароль должен быть не короче 6 символов");
       return;
     }
-
     auth.signInWithEmailAndPassword(email, password)
       .catch(error => {
         if (error.code === 'auth/user-not-found') {
-          auth.createUserWithEmailAndPassword(email, password)
-            .catch(err => alert("Ошибка: " + err.message));
-        } else {
-          alert("Ошибка: " + error.message);
+          auth.createUserWithEmailAndPassword(email, password);
         }
       });
   }
@@ -266,107 +376,139 @@
     auth.signOut().then(showAuthScreen);
   }
 
-  // === ПОСЛЕ ВХОДА ===
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user;
-      showMainMenu();
-    }
-  });
-
-  function showMainMenu() {
-    document.getElementById('menu').style.display = 'flex';
-    document.getElementById('authScreen').style.display = 'none';
-    document.getElementById('emailScreen').style.display = 'none';
-    loadFriends();
-    loadLeaderboard();
-  }
-
-  // === ИГРОВАЯ ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ) ===
-  function showTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById('friendsList').style.display = tab === 'friends' ? 'block' : 'none';
-    document.getElementById('leaderboard').style.display = tab === 'leaderboard' ? 'block' : 'none';
-  }
-
-  function loadFriends() {
-    const friendsList = document.getElementById('friendsList');
-    friendsList.innerHTML = '<div>Загрузка...</div>';
-    
-    database.ref('rooms').once('value', snapshot => {
-      const friends = new Set();
-      snapshot.forEach(roomSnap => {
-        const roomData = roomSnap.val();
-        if (roomData && roomData.players) {
-          Object.values(roomData.players).forEach(player => {
-            if (player && player.name) {
-              friends.add(player.name);
-            }
-          });
-        }
-      });
-      friendsList.innerHTML = '';
-      if (friends.size === 0) {
-        friendsList.innerHTML = '<div style="color:#666;">Нет друзей онлайн</div>';
-        return;
-      }
-      friends.forEach(name => {
-        const div = document.createElement('div');
-        div.className = 'friend-item';
-        div.textContent = name;
-        friendsList.appendChild(div);
-      });
+  // === СОХРАНЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ===
+  async function saveUserData() {
+    if (!currentUser) return;
+    const userRef = database.ref(`users/${currentUser.uid}`);
+    const skin = generatePlayerSkin();
+    await userRef.update({
+      displayName: currentUser.displayName || currentUser.email || "Игрок",
+      lastLogin: firebase.database.ServerValue.TIMESTAMP,
+      skin: skin
     });
   }
 
-  function loadLeaderboard() {
-    const board = document.getElementById('leaderboard');
-    board.innerHTML = '<div>Загрузка...</div>';
+  // === ДРУЗЬЯ ===
+  async function loadFriends() {
+    if (!currentUser) return;
+    const container = document.getElementById('friendsList');
+    container.innerHTML = '<div style="text-align:center;color:#aaa;">Загрузка...</div>';
     
+    const userRef = database.ref(`users/${currentUser.uid}`);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val() || {};
+    const friendIds = userData.friends || [];
+    
+    const friends = [];
+    for (const fid of friendIds) {
+      const friendSnap = await database.ref(`users/${fid}`).once('value');
+      const friendData = friendSnap.val();
+      if (friendData) {
+        friends.push({ id: fid, name: friendData.displayName || "Игрок" });
+      }
+    }
+    
+    container.innerHTML = '';
+    if (friends.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:#666;">Нет друзей</div>';
+      return;
+    }
+    
+    friends.forEach(f => {
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      div.innerHTML = `
+        <span>${f.name}</span>
+        <button class="add-friend-btn" onclick="removeFriend('${f.id}')">−</button>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  async function addFriend(friendId) {
+    if (!currentUser || friendId === currentUser.uid) return;
+    const userRef = database.ref(`users/${currentUser.uid}/friends`);
+    const snapshot = await userRef.once('value');
+    const friends = snapshot.val() || [];
+    if (!friends.includes(friendId)) {
+      friends.push(friendId);
+      userRef.set(friends);
+      loadFriends();
+    }
+  }
+
+  async function removeFriend(friendId) {
+    if (!currentUser) return;
+    const userRef = database.ref(`users/${currentUser.uid}/friends`);
+    const snapshot = await userRef.once('value');
+    const friends = (snapshot.val() || []).filter(id => id !== friendId);
+    userRef.set(friends);
+    loadFriends();
+  }
+
+  // === ЛИДЕРБОРД ===
+  function loadLeaderboard() {
+    const container = document.getElementById('leaderboard');
+    container.innerHTML = '<div style="text-align:center;color:#aaa;">Загрузка...</div>';
     database.ref('leaderboard').orderByChild('score').limitToLast(10).once('value', snapshot => {
       const leaders = [];
-      snapshot.forEach(child => {
-        leaders.push({ name: child.val().name, score: child.val().score });
-      });
+      snapshot.forEach(child => leaders.push(child.val()));
       leaders.reverse();
-      board.innerHTML = '';
+      container.innerHTML = '';
       if (leaders.length === 0) {
-        board.innerHTML = '<div style="color:#666;">Нет рекордов</div>';
+        container.innerHTML = '<div style="text-align:center;color:#666;">Нет рекордов</div>';
         return;
       }
       leaders.forEach((item, i) => {
         const div = document.createElement('div');
-        div.className = 'leader-item';
-        div.textContent = `${i+1}. ${item.name}: ${item.score}`;
-        board.appendChild(div);
+        div.className = 'list-item';
+        div.innerHTML = `<span>${i+1}. ${item.name}</span><span>${item.score}</span>`;
+        container.appendChild(div);
       });
     });
   }
 
-  function joinGame() {
-    const roomIdInput = document.getElementById('roomIdInput');
-    currentRoom = roomIdInput.value.trim() || 'clicker-room';
+  // === СЕРВЕРЫ ===
+  function createCustomRoom() {
+    const id = document.getElementById('customRoomId').value.trim();
+    if (!id) {
+      alert("Введите ID комнаты");
+      return;
+    }
+    joinRoom(id);
+  }
+
+  async function joinRoom(roomId) {
+    currentRoom = roomId;
     playerId = currentUser.uid;
     
+    // Загрузка скина пользователя
+    let skin = generatePlayerSkin();
+    const userSnap = await database.ref(`users/${playerId}`).once('value');
+    if (userSnap.val() && userSnap.val().skin) {
+      skin = userSnap.val().skin;
+    }
+    
     document.getElementById('menu').style.display = 'none';
+    document.getElementById('serversScreen').style.display = 'none';
     document.getElementById('gameUI').style.display = 'block';
     
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d');
-    const minimap = document.getElementById('minimap');
-    minimapCtx = minimap.getContext('2d');
+    minimapCtx = document.getElementById('minimap').getContext('2d');
     
     const startX = Math.random() * (WORLD_WIDTH - 100) + 50;
     const startY = Math.random() * (WORLD_HEIGHT - 100) + 50;
+    
     players[playerId] = { 
       x: startX, 
       y: startY, 
-      name: currentUser.displayName || currentUser.email || "Player" 
+      name: currentUser.displayName || currentUser.email || "Игрок",
+      skin: skin
     };
     
-    const roomRef = database.ref(`rooms/${currentRoom}`);
-    roomRef.child(`players/${playerId}`).set(players[playerId]);
+    const roomRef = database.ref(`rooms/${roomId}`);
+    await roomRef.child(`players/${playerId}`).set(players[playerId]);
     roomRef.child(`players/${playerId}`).onDisconnect().remove();
     
     roomRef.child('players').on('value', snapshot => {
@@ -374,101 +516,54 @@
     });
     
     score = 0;
-    gameTime = 60;
     gameActive = true;
     document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
-    document.getElementById('timeDisplay').textContent = `Время: ${gameTime}`;
     
-    const timer = setInterval(() => {
-      if (!gameActive) {
-        clearInterval(timer);
-        return;
+    function handleInteraction(clientX, clientY) {
+      if (!gameActive) return;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = clientX - rect.left;
+      const clickY = clientY - rect.top;
+      
+      let closestPlayer = null;
+      let minDist = 50;
+      for (const id in players) {
+        const p = players[id];
+        if (!p) continue;
+        const dist = Math.hypot(p.x - clickX, p.y - clickY);
+        if (dist < minDist) {
+          minDist = dist;
+          closestPlayer = id;
+        }
       }
-      gameTime--;
-      document.getElementById('timeDisplay').textContent = `Время: ${gameTime}`;
-      if (gameTime <= 0) {
-        endGame();
-        clearInterval(timer);
+      
+      if (closestPlayer === playerId) {
+        if (Date.now() - (window.lastClick || 0) < 100) return;
+        window.lastClick = Date.now();
+        score++;
+        document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
+        
+        // Сохранение в лидерборд при клике (для бесконечного режима)
+        if (score % 50 === 0) { // каждые 50 очков
+          database.ref('leaderboard').push({
+            name: currentUser.displayName || currentUser.email || "Anonymous",
+            score: score,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+          });
+        }
       }
-    }, 1000);
+    }
     
-    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('click', e => handleInteraction(e.clientX, e.clientY));
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
-      handleCanvasClick(e.touches[0]);
+      handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
     });
     
     gameLoop();
   }
 
-  function handleCanvasClick(clientPoint) {
-    if (!gameActive) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const clickX = clientPoint.clientX - rect.left;
-    const clickY = clientPoint.clientY - rect.top;
-    
-    let closestPlayer = null;
-    let minDist = 50;
-    
-    for (const id in players) {
-      const p = players[id];
-      if (!p) continue;
-      const dist = Math.sqrt((p.x - clickX) ** 2 + (p.y - clickY) ** 2);
-      if (dist < minDist) {
-        minDist = dist;
-        closestPlayer = id;
-      }
-    }
-    
-    if (closestPlayer === playerId) {
-      if (Date.now() - (window.lastClick || 0) < 100) return;
-      window.lastClick = Date.now();
-      
-      score++;
-      document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
-      
-      const clickData = {
-        playerId: playerId,
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        clickX: clickX,
-        clickY: clickY
-      };
-      
-      if (clickX >= 0 && clickX <= WORLD_WIDTH && clickY >= 0 && clickY <= WORLD_HEIGHT) {
-        database.ref(`clicks/${currentRoom}/${Date.now()}`).set(clickData);
-      }
-    }
-  }
-
-  function endGame() {
-    gameActive = false;
-    
-    const name = currentUser.displayName || currentUser.email || "Anonymous";
-    database.ref('leaderboard').push({
-      name: name,
-      score: score,
-      timestamp: firebase.database.ServerValue.TIMESTAMP
-    });
-    
-    if (confirm(`Игра окончена! Ваш счёт: ${score}\nВернуться в меню?`)) {
-      leaveGame();
-    } else {
-      leaveGame();
-    }
-  }
-
-  function leaveGame() {
-    if (currentRoom && playerId) {
-      database.ref(`rooms/${currentRoom}/players/${playerId}`).remove();
-    }
-    currentRoom = null;
-    players = {};
-    document.getElementById('gameUI').style.display = 'none';
-    document.getElementById('menu').style.display = 'flex';
-    loadFriends();
-  }
-
+  // === ИГРОВОЙ ЦИКЛ ===
   function gameLoop() {
     if (!gameActive) return;
     
@@ -485,52 +580,87 @@
     
     for (const id in players) {
       const p = players[id];
-      if (!p) continue;
+      if (!p || !p.skin) continue;
       
-      ctx.fillStyle = id === playerId ? '#3498db' : '#e74c3c';
+      ctx.fillStyle = p.skin.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
       ctx.fill();
       
       ctx.fillStyle = 'white';
       ctx.beginPath();
-      ctx.arc(p.x - 6, p.y - 4, 5, 0, Math.PI * 2);
-      ctx.arc(p.x + 6, p.y - 4, 5, 0, Math.PI * 2);
+      ctx.arc(p.x - 7, p.y - 5, 6, 0, Math.PI * 2);
+      ctx.arc(p.x + 7, p.y - 5, 6, 0, Math.PI * 2);
       ctx.fill();
+      
       ctx.fillStyle = 'black';
       ctx.beginPath();
-      ctx.arc(p.x - 6, p.y - 4, 2, 0, Math.PI * 2);
-      ctx.arc(p.x + 6, p.y - 4, 2, 0, Math.PI * 2);
+      ctx.arc(p.x - 7, p.y - 5, 2.5, 0, Math.PI * 2);
+      ctx.arc(p.x + 7, p.y - 5, 2.5, 0, Math.PI * 2);
       ctx.fill();
+      
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'center';
+      if (p.skin.hat !== '—') {
+        ctx.fillText(p.skin.hat, p.x, p.y - 28);
+      }
       
       ctx.fillStyle = 'white';
       ctx.font = '14px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(p.name, p.x, p.y - 30);
+      ctx.fillText(p.name, p.x, p.y - 42);
     }
     
-    minimapCtx.fillStyle = '#0a0a14';
-    minimapCtx.fillRect(0, 0, 120, 80);
+    minimapCtx.fillStyle = 'rgba(10,10,20,0.7)';
+    minimapCtx.fillRect(0, 0, 130, 90);
     minimapCtx.strokeStyle = '#4ecca3';
-    minimapCtx.strokeRect(0, 0, 120, 80);
+    minimapCtx.strokeRect(0, 0, 130, 90);
     
-    const mapScaleX = 120 / WORLD_WIDTH;
-    const mapScaleY = 80 / WORLD_HEIGHT;
+    const mapScaleX = 130 / WORLD_WIDTH;
+    const mapScaleY = 90 / WORLD_HEIGHT;
     for (const id in players) {
       const p = players[id];
       if (!p) continue;
       const mx = p.x * mapScaleX;
       const my = p.y * mapScaleY;
-      minimapCtx.fillStyle = id === playerId ? '#3498db' : '#e74c3c';
+      minimapCtx.fillStyle = id === playerId ? '#4ecca3' : '#e94560';
       minimapCtx.beginPath();
-      minimapCtx.arc(mx, my, 3, 0, Math.PI * 2);
+      minimapCtx.arc(mx, my, 4, 0, Math.PI * 2);
       minimapCtx.fill();
     }
     
     requestAnimationFrame(gameLoop);
   }
 
-  setInterval(loadFriends, 5000);
+  function leaveGame() {
+    if (currentRoom && playerId) {
+      database.ref(`rooms/${currentRoom}/players/${playerId}`).remove();
+    }
+    currentRoom = null;
+    players = {};
+    document.getElementById('gameUI').style.display = 'none';
+    document.getElementById('menu').style.display = 'flex';
+    loadFriends();
+  }
+
+  // === ИНИЦИАЛИЗАЦИЯ ===
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      currentUser = user;
+      await saveUserData();
+      document.getElementById('profileName').textContent = 
+        user.displayName || user.email || "Игрок";
+      document.getElementById('profileAvatar').textContent = 
+        (user.displayName || user.email || "U")[0].toUpperCase();
+      showMainMenu();
+    }
+  });
+
+  // Функция для добавления в друзья (вызывается из UI)
+  window.addFriend = addFriend;
+  window.removeFriend = removeFriend;
+
+  // Загрузка друзей периодически
+  setInterval(() => { if (currentUser) loadFriends(); }, 10000);
 </script>
 
 </body>
