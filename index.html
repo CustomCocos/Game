@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>⚽ Кликер — Вход</title>
+  <title>⚽ Кликер — Мультиплеер</title>
   
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -29,7 +29,7 @@
       justify-content: center;
       padding: 20px;
     }
-    #authScreen, #emailScreen, #phoneScreen { display: flex; }
+    #authScreen, #emailScreen { display: flex; }
     #menu, #gameUI { display: none; }
     
     button {
@@ -45,7 +45,11 @@
       font-weight: bold;
       cursor: pointer;
     }
-    .auth-btn { background: #16213e; margin-top: 5px; }
+    .auth-btn {
+      background: #16213e;
+      margin-top: 5px;
+      font-size: 16px;
+    }
     input {
       padding: 14px;
       width: 90%;
@@ -143,30 +147,20 @@
 </head>
 <body>
 
-<!-- Экран выбора метода входа -->
+<!-- Экран входа -->
 <div id="authScreen" class="screen">
-  <h2 style="margin-bottom: 20px; color: #4ecca3;">Выберите способ входа</h2>
-  <button onclick="signInWithGoogle()">🔐 Google</button>
+  <h2 style="margin-bottom: 20px; color: #4ecca3;">Войдите в игру</h2>
+  <button onclick="signInWithGoogle()">🔐 Войти через Google</button>
   <button onclick="showEmailScreen()">📧 Email / Пароль</button>
-  <button onclick="showPhoneScreen()">📱 Телефон</button>
-  <button onclick="signInAnonymously()">👤 Анонимно</button>
+  <button onclick="signInAnonymously()">👤 Играть анонимно</button>
 </div>
 
 <!-- Email / Password -->
 <div id="emailScreen" class="screen" style="display:none;">
   <h2>Email / Пароль</h2>
-  <input type="email" id="emailInput" placeholder="Email" />
-  <input type="password" id="passwordInput" placeholder="Пароль" />
+  <input type="email" id="emailInput" placeholder="Ваш email" />
+  <input type="password" id="passwordInput" placeholder="Пароль (мин. 6 символов)" />
   <button onclick="handleEmailAuth()">Войти / Зарегистрироваться</button>
-  <button class="auth-btn" onclick="showAuthScreen()">← Назад</button>
-</div>
-
-<!-- Телефон -->
-<div id="phoneScreen" class="screen" style="display:none;">
-  <h2>Телефон (SMS)</h2>
-  <input type="tel" id="phoneInput" placeholder="+1 650-555-0000" />
-  <input type="text" id="codeInput" placeholder="Код из SMS" style="display:none;" />
-  <button id="phoneBtn" onclick="sendPhoneCode()">Получить SMS</button>
   <button class="auth-btn" onclick="showAuthScreen()">← Назад</button>
 </div>
 
@@ -225,13 +219,11 @@
   let canvas, ctx, minimapCtx;
   const WORLD_WIDTH = 1500;
   const WORLD_HEIGHT = 1000;
-  let confirmationResult = null; // для телефонной верификации
 
-  // === НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ ===
+  // === НАВИГАЦИЯ ===
   function showAuthScreen() {
     document.getElementById('authScreen').style.display = 'flex';
     document.getElementById('emailScreen').style.display = 'none';
-    document.getElementById('phoneScreen').style.display = 'none';
     document.getElementById('menu').style.display = 'none';
     document.getElementById('gameUI').style.display = 'none';
   }
@@ -239,11 +231,6 @@
   function showEmailScreen() {
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('emailScreen').style.display = 'flex';
-  }
-  
-  function showPhoneScreen() {
-    document.getElementById('authScreen').style.display = 'none';
-    document.getElementById('phoneScreen').style.display = 'flex';
   }
 
   // === МЕТОДЫ ВХОДА ===
@@ -259,67 +246,43 @@
   function handleEmailAuth() {
     const email = document.getElementById('emailInput').value;
     const password = document.getElementById('passwordInput').value;
-    if (!email || !password) return;
+    if (!email || !password || password.length < 6) {
+      alert("Пароль должен быть не короче 6 символов");
+      return;
+    }
 
-    // Сначала пытаемся войти
     auth.signInWithEmailAndPassword(email, password)
       .catch(error => {
         if (error.code === 'auth/user-not-found') {
-          // Если нет — регистрируем
           auth.createUserWithEmailAndPassword(email, password)
-            .catch(console.error);
+            .catch(err => alert("Ошибка: " + err.message));
         } else {
-          console.error(error);
+          alert("Ошибка: " + error.message);
         }
       });
   }
 
-  function sendPhoneCode() {
-    const phoneNumber = document.getElementById('phoneInput').value;
-    if (!phoneNumber) return;
-
-    const appVerifier = new firebase.auth.RecaptchaVerifier('phoneBtn', {
-      'size': 'invisible',
-      'callback': () => {}
-    });
-
-    auth.signInWithPhoneNumber(phoneNumber, appVerifier)
-      .then(confirmation => {
-        confirmationResult = confirmation;
-        document.getElementById('codeInput').style.display = 'block';
-        document.getElementById('phoneBtn').textContent = 'Подтвердить код';
-        document.getElementById('phoneBtn').onclick = verifyPhoneCode;
-      })
-      .catch(console.error);
-  }
-
-  function verifyPhoneCode() {
-    const code = document.getElementById('codeInput').value;
-    if (!code || !confirmationResult) return;
-    
-    confirmationResult.confirm(code)
-      .catch(console.error);
-  }
-
-  // === ВЫХОД ===
   function signOut() {
     auth.signOut().then(showAuthScreen);
   }
 
-  // === ПОСЛЕ УСПЕШНОГО ВХОДА ===
+  // === ПОСЛЕ ВХОДА ===
   auth.onAuthStateChanged(user => {
     if (user) {
       currentUser = user;
-      document.getElementById('menu').style.display = 'flex';
-      document.getElementById('authScreen').style.display = 'none';
-      document.getElementById('emailScreen').style.display = 'none';
-      document.getElementById('phoneScreen').style.display = 'none';
-      loadFriends();
-      loadLeaderboard();
+      showMainMenu();
     }
   });
 
-  // === ОСТАЛЬНАЯ ЛОГИКА ИГРЫ (БЕЗ ИЗМЕНЕНИЙ) ===
+  function showMainMenu() {
+    document.getElementById('menu').style.display = 'flex';
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('emailScreen').style.display = 'none';
+    loadFriends();
+    loadLeaderboard();
+  }
+
+  // === ИГРОВАЯ ЛОГИКА (БЕЗ ИЗМЕНЕНИЙ) ===
   function showTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
