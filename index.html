@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>✨ Кликер — Мультиплеер</title>
+  <title>✨ Кликер Pro — Мультиплеер</title>
   
   <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="7.24.0/firebase-app.js"></script>
+  <script src="7.24.0/firebase-auth.js"></script>
+  <script src="7.24.0/firebase-database.js"></script>
   
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
@@ -29,7 +29,7 @@
       justify-content: center;
       padding: 20px;
     }
-    #authScreen, #emailScreen, #serversScreen { display: flex; }
+    #authScreen, #emailScreen, #serversScreen, #friendsScreen { display: flex; }
     #menu, #gameUI { display: none; }
     
     .btn {
@@ -48,7 +48,12 @@
     .btn-primary { background: linear-gradient(45deg, #4ecca3, #2a9d8f); color: white; }
     .btn-secondary { background: rgba(255,255,255,0.15); color: white; }
     .btn-danger { background: linear-gradient(45deg, #e94560, #d0003a); color: white; }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+    .btn-sm {
+      padding: 8px 16px;
+      width: auto;
+      font-size: 14px;
+      margin: 0 5px;
+    }
     
     .input-field {
       padding: 14px;
@@ -125,7 +130,7 @@
     .list-container {
       width: 90%;
       max-width: 340px;
-      max-height: 180px;
+      max-height: 200px;
       overflow-y: auto;
       background: rgba(0,0,0,0.2);
       padding: 12px;
@@ -133,24 +138,15 @@
       margin: 10px 0;
     }
     .list-item {
-      padding: 10px;
-      margin: 6px 0;
+      padding: 12px;
+      margin: 8px 0;
       background: rgba(255,255,255,0.1);
-      border-radius: 12px;
+      border-radius: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .add-friend-btn {
-      background: rgba(78,204,163,0.3);
-      border: none;
-      color: white;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      font-size: 14px;
-      cursor: pointer;
-    }
+    .server-icon { font-size: 24px; margin-right: 10px; }
     
     /* Игровой интерфейс */
     #gameContainer {
@@ -186,9 +182,20 @@
       backdrop-filter: blur(4px);
     }
     #scoreDisplay { top: 20px; left: 20px; }
+    #playersList { 
+      position: absolute;
+      top: 70px;
+      left: 20px;
+      width: 200px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.4);
+      padding: 10px;
+      border-radius: 16px;
+    }
     #leaveBtn {
       position: absolute;
-      top: 75px;
+      top: 20px;
       right: 20px;
       padding: 8px 16px;
       border-radius: 20px;
@@ -200,7 +207,7 @@
 <!-- Экран входа -->
 <div id="authScreen" class="screen">
   <div class="menu-header">
-    <div class="menu-title">✨ Кликер</div>
+    <div class="menu-title">✨ Кликер Pro</div>
   </div>
   <button class="btn btn-primary" onclick="signInWithGoogle()">🔐 Google</button>
   <button class="btn btn-secondary" onclick="showEmailScreen()">📧 Email</button>
@@ -218,26 +225,52 @@
   <button class="btn btn-secondary" onclick="showAuthScreen()">← Назад</button>
 </div>
 
-<!-- Экран серверов -->
+<!-- Серверы -->
 <div id="serversScreen" class="screen" style="display:none;">
   <div class="menu-header">
     <div class="menu-title">🌐 Серверы</div>
   </div>
   
   <div class="tabs">
-    <button class="tab-btn active" onclick="showServerTab('main')">Основной</button>
+    <button class="tab-btn active" onclick="showServerTab('public')">Публичные</button>
     <button class="tab-btn" onclick="showServerTab('create')">Создать</button>
   </div>
   
-  <div id="mainServer">
-    <p style="text-align:center; margin-bottom:20px; color:#a0a0c0;">Сервер работает всегда</p>
-    <button class="btn btn-primary" onclick="joinRoom('main-server')">▶️ Присоединиться</button>
+  <div id="publicServers">
+    <div id="serversList" class="list-container"></div>
   </div>
   
   <div id="createServer" style="display:none;">
-    <input type="text" id="customRoomId" class="input-field" placeholder="ID комнаты" />
-    <button class="btn btn-primary" onclick="createCustomRoom()">🚀 Создать сервер</button>
+    <input type="text" id="serverName" class="input-field" placeholder="Название сервера" />
+    <div style="margin: 15px 0; color: #a0a0c0;">Выберите иконку:</div>
+    <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px;">
+      <span class="server-icon" data-icon="🌍">🌍</span>
+      <span class="server-icon" data-icon="🎮">🎮</span>
+      <span class="server-icon" data-icon="🔥">🔥</span>
+      <span class="server-icon" data-icon="🏆">🏆</span>
+      <span class="server-icon" data-icon="👾">👾</span>
+    </div>
+    <button class="btn btn-primary" onclick="createServer()">🚀 Создать публичный</button>
+    <input type="text" id="privateCode" class="input-field" placeholder="Код приватного сервера" />
+    <button class="btn btn-secondary" onclick="joinPrivateServer()">🔒 Присоединиться по коду</button>
   </div>
+  
+  <button class="btn btn-secondary" onclick="showMainMenu()">← Назад</button>
+</div>
+
+<!-- Друзья -->
+<div id="friendsScreen" class="screen" style="display:none;">
+  <div class="menu-header">
+    <div class="menu-title">👥 Друзья</div>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showFriendsTab('list')">Список</button>
+    <button class="tab-btn" onclick="showFriendsTab('requests')">Приглашения</button>
+  </div>
+  
+  <div id="friendsList" class="list-container"></div>
+  <div id="friendRequests" class="list-container" style="display:none;"></div>
   
   <button class="btn btn-secondary" onclick="showMainMenu()">← Назад</button>
 </div>
@@ -245,7 +278,7 @@
 <!-- Главное меню -->
 <div id="menu" class="screen" style="display:none;">
   <div class="menu-header">
-    <div class="menu-title">✨ Кликер</div>
+    <div class="menu-title">✨ Кликер Pro</div>
   </div>
   
   <div id="profilePanel" onclick="showAuthScreen()">
@@ -253,15 +286,8 @@
     <div id="profileName">Загрузка...</div>
   </div>
   
-  <div class="tabs">
-    <button class="tab-btn active" onclick="showTab('friends')">Друзья</button>
-    <button class="tab-btn" onclick="showTab('leaderboard')">Лидеры</button>
-  </div>
-  
-  <div id="friendsList" class="list-container"></div>
-  <div id="leaderboard" class="list-container" style="display:none;"></div>
-  
-  <button class="btn btn-primary" onclick="showServersScreen()">🌐 Выбрать сервер</button>
+  <button class="btn btn-primary" onclick="showServersScreen()">🌐 Серверы</button>
+  <button class="btn btn-secondary" onclick="showFriendsScreen()">👥 Друзья</button>
   <button class="btn btn-danger" onclick="signOut()">Выйти</button>
 </div>
 
@@ -271,12 +297,13 @@
     <canvas id="gameCanvas" width="1500" height="1000"></canvas>
     <div id="scoreDisplay" class="game-overlay">Счёт: 0</div>
     <button id="leaveBtn" class="btn btn-danger" onclick="leaveGame()">🚪 Выйти</button>
+    <div id="playersList"></div>
     <canvas id="minimap" width="130" height="90"></canvas>
   </div>
 </div>
 
 <script>
-  // === FIREBASE CONFIG ===
+  // === ИСПОЛЬЗУЕМ CDN ДЛЯ СТАБИЛЬНОСТИ ===
   const firebaseConfig = {
     apiKey: "AIzaSyB03njAHYVQ2VI5-0-rOTR39pW0ggPqDus",
     authDomain: "ball-game-53e49.firebaseapp.com",
@@ -287,10 +314,12 @@
     appId: "1:895128807264:web:019538a33ed810c55ba005"
   };
 
+  // Инициализация Firebase
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const database = firebase.database();
 
+  // Глобальные переменные
   let currentUser = null;
   let currentRoom = null;
   let playerId = null;
@@ -300,24 +329,14 @@
   let canvas, ctx, minimapCtx;
   const WORLD_WIDTH = 1500;
   const WORLD_HEIGHT = 1000;
-
-  // Генерация уникального персонажа
-  function generatePlayerSkin() {
-    const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'];
-    const eyes = ['⚪', '👁️', '👀'];
-    const hats = ['—', '🎓', '👑', '🎩', '👒'];
-    return {
-      color: colors[Math.floor(Math.random() * colors.length)],
-      eyes: eyes[Math.floor(Math.random() * eyes.length)],
-      hat: hats[Math.floor(Math.random() * hats.length)]
-    };
-  }
+  let selectedServerIcon = '🌍';
 
   // === НАВИГАЦИЯ ===
   function showAuthScreen() {
     document.getElementById('authScreen').style.display = 'flex';
     document.getElementById('emailScreen').style.display = 'none';
     document.getElementById('serversScreen').style.display = 'none';
+    document.getElementById('friendsScreen').style.display = 'none';
     document.getElementById('menu').style.display = 'none';
     document.getElementById('gameUI').style.display = 'none';
   }
@@ -330,31 +349,45 @@
   function showServersScreen() {
     document.getElementById('menu').style.display = 'none';
     document.getElementById('serversScreen').style.display = 'flex';
+    loadPublicServers();
+  }
+  
+  function showFriendsScreen() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('friendsScreen').style.display = 'flex';
+    loadFriends();
+    loadFriendRequests();
   }
   
   function showMainMenu() {
     document.getElementById('menu').style.display = 'flex';
     document.getElementById('serversScreen').style.display = 'none';
+    document.getElementById('friendsScreen').style.display = 'none';
     document.getElementById('gameUI').style.display = 'none';
-    loadFriends();
-    loadLeaderboard();
   }
   
   function showServerTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
-    document.getElementById('mainServer').style.display = tab === 'main' ? 'block' : 'none';
+    document.getElementById('publicServers').style.display = tab === 'public' ? 'block' : 'none';
     document.getElementById('createServer').style.display = tab === 'create' ? 'block' : 'none';
+  }
+  
+  function showFriendsTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('friendsList').style.display = tab === 'list' ? 'block' : 'none';
+    document.getElementById('friendRequests').style.display = tab === 'requests' ? 'block' : 'none';
   }
 
   // === АУТЕНТИФИКАЦИЯ ===
   function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider);
+    auth.signInWithPopup(provider).catch(console.error);
   }
 
   function signInAnonymously() {
-    auth.signInAnonymously();
+    auth.signInAnonymously().catch(console.error);
   }
 
   function handleEmailAuth() {
@@ -376,16 +409,82 @@
     auth.signOut().then(showAuthScreen);
   }
 
-  // === СОХРАНЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ===
+  // === СОХРАНЕНИЕ ДАННЫХ ===
   async function saveUserData() {
     if (!currentUser) return;
     const userRef = database.ref(`users/${currentUser.uid}`);
-    const skin = generatePlayerSkin();
+    const displayName = currentUser.displayName || currentUser.email || "Игрок";
     await userRef.update({
-      displayName: currentUser.displayName || currentUser.email || "Игрок",
-      lastLogin: firebase.database.ServerValue.TIMESTAMP,
-      skin: skin
+      displayName: displayName,
+      lastLogin: firebase.database.ServerValue.TIMESTAMP
     });
+  }
+
+  // === СЕРВЕРЫ ===
+  function selectServerIcon(icon) {
+    selectedServerIcon = icon;
+    document.querySelectorAll('.server-icon').forEach(el => {
+      el.style.transform = el.dataset.icon === icon ? 'scale(1.2)' : 'scale(1)';
+      el.style.filter = el.dataset.icon === icon ? 'brightness(1.5)' : 'brightness(1)';
+    });
+  }
+
+  async function createServer() {
+    const name = document.getElementById('serverName').value.trim();
+    if (!name) {
+      alert("Введите название сервера");
+      return;
+    }
+    const serverId = 'server_' + Date.now().toString(36).substr(2, 6);
+    await database.ref(`servers/${serverId}`).set({
+      name: name,
+      icon: selectedServerIcon,
+      public: true,
+      lastActive: firebase.database.ServerValue.TIMESTAMP
+    });
+    joinRoom(serverId);
+  }
+
+  function joinPrivateServer() {
+    const code = document.getElementById('privateCode').value.trim();
+    if (!code) {
+      alert("Введите код сервера");
+      return;
+    }
+    joinRoom(code);
+  }
+
+  async function loadPublicServers() {
+    const container = document.getElementById('serversList');
+    container.innerHTML = '<div style="text-align:center;color:#aaa;">Загрузка...</div>';
+    
+    // Основной сервер
+    const mainDiv = document.createElement('div');
+    mainDiv.className = 'list-item';
+    mainDiv.innerHTML = `<span class="server-icon">🏠</span> Основной сервер`;
+    mainDiv.onclick = () => joinRoom('main-server');
+    container.innerHTML = '';
+    container.appendChild(mainDiv);
+    
+    // Публичные серверы
+    const serversRef = database.ref('servers');
+    const snapshot = await serversRef.orderByChild('public').equalTo(true).limitToLast(20).once('value');
+    let count = 0;
+    snapshot.forEach(serverSnap => {
+      count++;
+      const serverData = serverSnap.val();
+      if (Date.now() - serverData.lastActive < 300000) { // активен последние 5 мин
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `<span class="server-icon">${serverData.icon}</span> ${serverData.name}`;
+        div.onclick = () => joinRoom(serverSnap.key);
+        container.appendChild(div);
+      }
+    });
+    
+    if (count === 0) {
+      container.innerHTML += '<div style="text-align:center;color:#666;margin-top:10px;">Нет публичных серверов</div>';
+    }
   }
 
   // === ДРУЗЬЯ ===
@@ -419,22 +518,79 @@
       div.className = 'list-item';
       div.innerHTML = `
         <span>${f.name}</span>
-        <button class="add-friend-btn" onclick="removeFriend('${f.id}')">−</button>
+        <button class="btn btn-sm btn-danger" onclick="removeFriend('${f.id}')">Удалить</button>
       `;
       container.appendChild(div);
     });
   }
 
-  async function addFriend(friendId) {
+  async function loadFriendRequests() {
+    if (!currentUser) return;
+    const container = document.getElementById('friendRequests');
+    container.innerHTML = '<div style="text-align:center;color:#aaa;">Загрузка...</div>';
+    
+    const requestsRef = database.ref(`friendRequests/${currentUser.uid}`);
+    const snapshot = await requestsRef.once('value');
+    const requests = snapshot.val() || {};
+    
+    container.innerHTML = '';
+    let hasRequests = false;
+    for (const senderId in requests) {
+      hasRequests = true;
+      const senderSnap = await database.ref(`users/${senderId}`).once('value');
+      const senderName = senderSnap.val()?.displayName || "Игрок";
+      
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      div.innerHTML = `
+        <span>${senderName}</span>
+        <div>
+          <button class="btn btn-sm btn-primary" onclick="acceptFriendRequest('${senderId}')">Принять</button>
+          <button class="btn btn-sm btn-danger" onclick="declineFriendRequest('${senderId}')">Отклонить</button>
+        </div>
+      `;
+      container.appendChild(div);
+    }
+    
+    if (!hasRequests) {
+      container.innerHTML = '<div style="text-align:center;color:#666;">Нет приглашений</div>';
+    }
+  }
+
+  async function inviteFriend(friendId) {
     if (!currentUser || friendId === currentUser.uid) return;
+    await database.ref(`friendRequests/${friendId}/${currentUser.uid}`).set(true);
+    alert("Приглашение отправлено!");
+  }
+
+  async function acceptFriendRequest(senderId) {
+    // Добавить в друзья
     const userRef = database.ref(`users/${currentUser.uid}/friends`);
     const snapshot = await userRef.once('value');
     const friends = snapshot.val() || [];
-    if (!friends.includes(friendId)) {
-      friends.push(friendId);
-      userRef.set(friends);
-      loadFriends();
+    if (!friends.includes(senderId)) {
+      friends.push(senderId);
+      await userRef.set(friends);
     }
+    
+    // Добавить и себя в друзья отправителя
+    const senderRef = database.ref(`users/${senderId}/friends`);
+    const senderSnap = await senderRef.once('value');
+    const senderFriends = senderSnap.val() || [];
+    if (!senderFriends.includes(currentUser.uid)) {
+      senderFriends.push(currentUser.uid);
+      await senderRef.set(senderFriends);
+    }
+    
+    // Удалить запрос
+    await database.ref(`friendRequests/${currentUser.uid}/${senderId}`).remove();
+    loadFriendRequests();
+    loadFriends();
+  }
+
+  async function declineFriendRequest(senderId) {
+    await database.ref(`friendRequests/${currentUser.uid}/${senderId}`).remove();
+    loadFriendRequests();
   }
 
   async function removeFriend(friendId) {
@@ -442,51 +598,45 @@
     const userRef = database.ref(`users/${currentUser.uid}/friends`);
     const snapshot = await userRef.once('value');
     const friends = (snapshot.val() || []).filter(id => id !== friendId);
-    userRef.set(friends);
+    await userRef.set(friends);
     loadFriends();
   }
 
-  // === ЛИДЕРБОРД ===
-  function loadLeaderboard() {
-    const container = document.getElementById('leaderboard');
-    container.innerHTML = '<div style="text-align:center;color:#aaa;">Загрузка...</div>';
-    database.ref('leaderboard').orderByChild('score').limitToLast(10).once('value', snapshot => {
-      const leaders = [];
-      snapshot.forEach(child => leaders.push(child.val()));
-      leaders.reverse();
-      container.innerHTML = '';
-      if (leaders.length === 0) {
-        container.innerHTML = '<div style="text-align:center;color:#666;">Нет рекордов</div>';
-        return;
-      }
-      leaders.forEach((item, i) => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        div.innerHTML = `<span>${i+1}. ${item.name}</span><span>${item.score}</span>`;
-        container.appendChild(div);
-      });
-    });
+  // === ГЕНЕРАЦИЯ ПЕРСОНАЖА ===
+  function generatePlayerSkin() {
+    const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'];
+    const eyes = ['⚪', '👁️', '👀'];
+    const hats = ['—', '🎓', '👑', '🎩', '👒'];
+    return {
+      color: colors[Math.floor(Math.random() * colors.length)],
+      eyes: eyes[Math.floor(Math.random() * eyes.length)],
+      hat: hats[Math.floor(Math.random() * hats.length)]
+    };
   }
 
-  // === СЕРВЕРЫ ===
-  function createCustomRoom() {
-    const id = document.getElementById('customRoomId').value.trim();
-    if (!id) {
-      alert("Введите ID комнаты");
+  // === ИГРОВАЯ ЛОГИКА ===
+  async function joinRoom(roomId) {
+    if (!currentUser) {
+      alert("Сначала войдите в аккаунт");
       return;
     }
-    joinRoom(id);
-  }
-
-  async function joinRoom(roomId) {
+    
     currentRoom = roomId;
     playerId = currentUser.uid;
     
-    // Загрузка скина пользователя
+    // Загрузка или генерация скина
     let skin = generatePlayerSkin();
     const userSnap = await database.ref(`users/${playerId}`).once('value');
-    if (userSnap.val() && userSnap.val().skin) {
-      skin = userSnap.val().skin;
+    const userData = userSnap.val();
+    if (userData && userData.skin) {
+      skin = userData.skin;
+    } else {
+      await database.ref(`users/${playerId}/skin`).set(skin);
+    }
+    
+    // Обновление активности сервера
+    if (roomId !== 'main-server' && !roomId.includes('private_')) {
+      database.ref(`servers/${roomId}/lastActive`).set(firebase.database.ServerValue.TIMESTAMP);
     }
     
     document.getElementById('menu').style.display = 'none';
@@ -503,7 +653,7 @@
     players[playerId] = { 
       x: startX, 
       y: startY, 
-      name: currentUser.displayName || currentUser.email || "Игрок",
+      name: userData?.displayName || "Игрок",
       skin: skin
     };
     
@@ -513,6 +663,7 @@
     
     roomRef.child('players').on('value', snapshot => {
       players = snapshot.val() || {};
+      updatePlayersList();
     });
     
     score = 0;
@@ -543,10 +694,10 @@
         score++;
         document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
         
-        // Сохранение в лидерборд при клике (для бесконечного режима)
-        if (score % 50 === 0) { // каждые 50 очков
+        // Сохранение рекорда каждые 100 очков
+        if (score % 100 === 0) {
           database.ref('leaderboard').push({
-            name: currentUser.displayName || currentUser.email || "Anonymous",
+            name: userData?.displayName || "Anonymous",
             score: score,
             timestamp: firebase.database.ServerValue.TIMESTAMP
           });
@@ -563,7 +714,26 @@
     gameLoop();
   }
 
-  // === ИГРОВОЙ ЦИКЛ ===
+  function updatePlayersList() {
+    const container = document.getElementById('playersList');
+    container.innerHTML = '<div style="color:#a0a0c0; margin-bottom:10px;">Игроки:</div>';
+    
+    for (const id in players) {
+      const p = players[id];
+      if (!p) continue;
+      
+      const div = document.createElement('div');
+      div.style.padding = '6px 0';
+      div.style.display = 'flex';
+      div.style.justifyContent = 'space-between';
+      div.innerHTML = `
+        <span>${p.name}</span>
+        ${id !== playerId ? `<button class="btn btn-sm btn-secondary" onclick="inviteFriend('${id}')">+</button>` : ''}
+      `;
+      container.appendChild(div);
+    }
+  }
+
   function gameLoop() {
     if (!gameActive) return;
     
@@ -639,7 +809,6 @@
     players = {};
     document.getElementById('gameUI').style.display = 'none';
     document.getElementById('menu').style.display = 'flex';
-    loadFriends();
   }
 
   // === ИНИЦИАЛИЗАЦИЯ ===
@@ -655,13 +824,23 @@
     }
   });
 
-  // Функция для добавления в друзья (вызывается из UI)
-  window.addFriend = addFriend;
-  window.removeFriend = removeFriend;
+  // === ОБРАБОТКА КЛИКОВ ПО ИКОНКАМ ===
+  document.querySelectorAll('.server-icon').forEach(el => {
+    el.addEventListener('click', () => selectServerIcon(el.dataset.icon));
+  });
+  selectServerIcon('🌍'); // инициализация
 
-  // Загрузка друзей периодически
-  setInterval(() => { if (currentUser) loadFriends(); }, 10000);
+  // Глобальные функции для вызова из HTML
+  window.inviteFriend = inviteFriend;
+  window.removeFriend = removeFriend;
+  window.acceptFriendRequest = acceptFriendRequest;
+  window.declineFriendRequest = declineFriendRequest;
 </script>
+
+<!-- Firebase CDN -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
 </body>
 </html>
